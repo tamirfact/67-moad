@@ -1,0 +1,67 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: #ffffff;
+    color: #37352f;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+.canvas {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+    background-color: #ffffff;
+    cursor: grab;
+}
+
+.canvas:active {
+    cursor: grabbing;
+}
+
+.rectangle {
+    position: absolute;
+    width: 200px;
+    height: 280px;
+    cursor: move;
+    transform-origin: center center;
+}
+
+.rectangle:hover {
+    filter: brightness(1.02);
+}
+
+.rectangle.dragging {
+    cursor: grabbing;
+    z-index: 10000;
+}
+
+.rectangle-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+    pointer-events: none;
+}
+
+.image-pile {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.image-page {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+}

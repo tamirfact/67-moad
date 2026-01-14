@@ -1,0 +1,53 @@
+{
+  "rectangles": [
+    {
+      "id": 1,
+      "name": "101",
+      "pages": [
+        "docs/101-1.png",
+        "docs/101-2.png"
+      ],
+      "width": 200,
+      "height": 280,
+      "x": 100,
+      "y": 150
+    },
+    {
+      "id": 2,
+      "name": "arc",
+      "pages": [
+        "docs/arc-1.png",
+        "docs/arc-2.png",
+        "docs/arc-3.png"
+      ],
+      "width": 200,
+      "height": 280,
+      "x": 350,
+      "y": 200
+    },
+    {
+      "id": 3,
+      "name": "report",
+      "pages": [
+        "docs/report-1.png",
+        "docs/report-2.png",
+        "docs/report-3.png"
+      ],
+      "width": 200,
+      "height": 280,
+      "x": 200,
+      "y": 350
+    },
+    {
+      "id": 4,
+      "name": "te",
+      "pages": [
+        "docs/te-1.png"
+      ],
+      "width": 200,
+      "height": 280,
+      "x": 500,
+      "y": 100
+    }
+  ]
+}
