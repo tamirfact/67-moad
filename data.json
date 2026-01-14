@@ -3,6 +3,7 @@
     {
       "id": 1,
       "name": "101",
+      "label": "Project 101 - Technical Specifications",
       "pages": [
         "docs/101-1.png",
         "docs/101-2.png"
@@ -15,6 +16,7 @@
     {
       "id": 2,
       "name": "arc",
+      "label": "Architecture Documentation",
       "pages": [
         "docs/arc-1.png",
         "docs/arc-2.png",
@@ -28,6 +30,7 @@
     {
       "id": 3,
       "name": "report",
+      "label": "Quarterly Report - Q4 2024",
       "pages": [
         "docs/report-1.png",
         "docs/report-2.png",
@@ -41,6 +44,7 @@
     {
       "id": 4,
       "name": "te",
+      "label": "Technical Evaluation",
       "pages": [
         "docs/te-1.png"
       ],

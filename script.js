@@ -38,6 +38,14 @@ $(document).ready(function() {
         };
     }
     
+    // Update z-index based on scale (bigger = higher z-index)
+    function updateZIndex(element, scale) {
+        // Scale ranges from 0.4 to 2.0, so z-index ranges from 400 to 2000
+        // This ensures larger documents appear on top
+        const zIndex = Math.round(scale * 1000);
+        element.style.zIndex = zIndex;
+    }
+    
     // Update element scale based on its position
     function updateElementScale(element) {
         const x = parseFloat(element.getAttribute('data-x')) || 0;
@@ -52,6 +60,11 @@ $(document).ready(function() {
         
         const scale = calculateScaleFromY(centerY, size.width);
         element.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+        
+        // Update z-index based on scale (unless dragging)
+        if (!$(element).hasClass('dragging')) {
+            updateZIndex(element, scale);
+        }
     }
     
     // Move document to edge (top or bottom) as icon
@@ -88,6 +101,7 @@ $(document).ready(function() {
         element.setAttribute('data-x', x);
         element.setAttribute('data-y', y);
         element.style.transform = `translate(${x}px, ${y}px) scale(${iconScale})`;
+        updateZIndex(element, iconScale);
         element.style.transition = 'transform 0.5s ease-out, top 0.5s ease-out, bottom 0.5s ease-out';
         
         // Remove transition after animation
@@ -117,6 +131,7 @@ $(document).ready(function() {
         element.setAttribute('data-x', x);
         element.setAttribute('data-y', y);
         element.style.transform = `translate(${x}px, ${y}px) scale(${maxScale})`;
+        updateZIndex(element, maxScale);
         element.style.transition = 'transform 0.5s ease-out, top 0.5s ease-out, left 0.5s ease-out';
         
         // Remove transition after animation
@@ -166,6 +181,9 @@ $(document).ready(function() {
                 listeners: {
                     start(event) {
                         $(event.target).addClass('dragging');
+                        
+                        // Set highest z-index while dragging
+                        event.target.style.zIndex = 10000;
                         
                         // Store cursor position at start
                         startCursorX = event.clientX;
@@ -237,7 +255,40 @@ $(document).ready(function() {
                         previousScale = newScale;
                     },
                     end(event) {
-                        $(event.target).removeClass('dragging');
+                        const target = event.target;
+                        $(target).removeClass('dragging');
+                        
+                        // Check if dropped on left panel
+                        const dropX = event.clientX;
+                        const dropY = event.clientY;
+                        const panelRect = $('#left-panel')[0].getBoundingClientRect();
+                        
+                        if (dropX >= panelRect.left && dropX <= panelRect.right &&
+                            dropY >= panelRect.top && dropY <= panelRect.bottom) {
+                            // Remove document from canvas
+                            const docName = target.getAttribute('data-name');
+                            if (docName) {
+                                documentsOnCanvas.delete(docName);
+                                
+                                // Remove document element
+                                $(target).remove();
+                                
+                                // Remove tooltip if exists
+                                const docId = target.getAttribute('data-id');
+                                $(`.rectangle-tooltip[data-rect-id="${docId}"]`).remove();
+                                
+                                // Update sidebar item state
+                                const $listItem = $(`.document-list-item[data-doc-name="${docName}"]`);
+                                updateDocumentListItemState($listItem, docName);
+                            }
+                        } else {
+                            // Update z-index based on final scale when released
+                            const currentTransform = window.getComputedStyle(target).transform;
+                            const matrix = new DOMMatrix(currentTransform);
+                            const finalScale = matrix.a || 1;
+                            updateZIndex(target, finalScale);
+                        }
+                        
                         cursorOffsetX = null;
                         cursorOffsetY = null;
                         previousScale = null;
@@ -261,6 +312,7 @@ $(document).ready(function() {
         const $rect = $('<div>')
             .addClass('rectangle')
             .attr('data-id', rectData.id)
+            .attr('data-name', rectData.name || '')
             .attr('data-width', width)
             .attr('data-height', height)
             .css({
@@ -299,6 +351,91 @@ $(document).ready(function() {
         $('#canvas').append($rect);
         makeDraggable($rect[0]);
         
+        // Track document on canvas
+        if (rectData.name) {
+            documentsOnCanvas.add(rectData.name);
+        }
+        
+        // Create tooltip if label exists
+        if (rectData.label) {
+            const $tooltip = $('<div>')
+                .addClass('rectangle-tooltip')
+                .text(rectData.label)
+                .attr('data-rect-id', rectData.id);
+            
+            $('body').append($tooltip);
+            
+            // Show tooltip on hover
+            $rect.on('mouseenter', function(e) {
+                const rect = this;
+                const rectRect = rect.getBoundingClientRect();
+                const tooltip = $tooltip[0];
+                
+                // Position tooltip above or below based on available space
+                const spaceAbove = rectRect.top;
+                const spaceBelow = window.innerHeight - rectRect.bottom;
+                const showAbove = spaceAbove > spaceBelow;
+                
+                $tooltip.removeClass('top bottom').addClass(showAbove ? 'top' : 'bottom');
+                
+                // Calculate position
+                const rectCenterX = rectRect.left + rectRect.width / 2;
+                const tooltipRect = tooltip.getBoundingClientRect();
+                const tooltipX = rectCenterX - tooltipRect.width / 2;
+                
+                // Keep tooltip within viewport
+                const minX = 10;
+                const maxX = window.innerWidth - tooltipRect.width - 10;
+                const finalX = Math.max(minX, Math.min(maxX, tooltipX));
+                
+                if (showAbove) {
+                    $tooltip.css({
+                        left: finalX + 'px',
+                        top: (rectRect.top - tooltipRect.height - 10) + 'px'
+                    });
+                } else {
+                    $tooltip.css({
+                        left: finalX + 'px',
+                        top: (rectRect.bottom + 10) + 'px'
+                    });
+                }
+                
+                $tooltip.addClass('show');
+            });
+            
+            // Hide tooltip on mouse leave
+            $rect.on('mouseleave', function() {
+                $tooltip.removeClass('show');
+            });
+            
+            // Update tooltip position during drag
+            $rect.on('mousemove', function() {
+                if ($tooltip.hasClass('show')) {
+                    const rect = this;
+                    const rectRect = rect.getBoundingClientRect();
+                    const tooltipRect = $tooltip[0].getBoundingClientRect();
+                    const showAbove = $tooltip.hasClass('top');
+                    const rectCenterX = rectRect.left + rectRect.width / 2;
+                    const tooltipX = rectCenterX - tooltipRect.width / 2;
+                    const minX = 10;
+                    const maxX = window.innerWidth - tooltipRect.width - 10;
+                    const finalX = Math.max(minX, Math.min(maxX, tooltipX));
+                    
+                    if (showAbove) {
+                        $tooltip.css({
+                            left: finalX + 'px',
+                            top: (rectRect.top - tooltipRect.height - 10) + 'px'
+                        });
+                    } else {
+                        $tooltip.css({
+                            left: finalX + 'px',
+                            top: (rectRect.bottom + 10) + 'px'
+                        });
+                    }
+                }
+            });
+        }
+        
         // Add double-click handler - prevent all event propagation
         $rect.on('dblclick', function(e) {
             e.stopPropagation();
@@ -318,9 +455,16 @@ $(document).ready(function() {
             return false;
         });
         
-        // Set initial scale based on position
+        // Set initial scale and z-index based on position
         setTimeout(() => {
             updateElementScale($rect[0]);
+            // Also set initial z-index
+            const baseTop = parseFloat($rect[0].style.top) || 0;
+            const y = parseFloat($rect[0].getAttribute('data-y')) || 0;
+            const size = getElementSize($rect[0]);
+            const centerY = baseTop + y + size.height / 2;
+            const scale = calculateScaleFromY(centerY, size.width);
+            updateZIndex($rect[0], scale);
         }, 0);
         
         return $rect;
@@ -328,15 +472,211 @@ $(document).ready(function() {
 
     // Track rectangle count for new rectangles
     let rectangleCount = 0;
+    // Track which documents are on canvas (by name/id)
+    let documentsOnCanvas = new Set();
+    let allDocumentsData = [];
+    
+    // Left panel functionality
+    const LEFT_PANEL_TRIGGER_DISTANCE = 30;
+    let panelVisible = false;
+    let panelHovered = false;
+    
+    // Track mouse position for panel trigger
+    $(document).on('mousemove', function(e) {
+        const distanceFromLeft = e.clientX;
+        
+        if (distanceFromLeft <= LEFT_PANEL_TRIGGER_DISTANCE && !panelVisible) {
+            $('#left-panel').addClass('visible');
+            panelVisible = true;
+        } else if (distanceFromLeft > LEFT_PANEL_TRIGGER_DISTANCE + 280 && panelVisible && !panelHovered) {
+            // Hide panel if mouse moves away (with some buffer) and not hovering panel
+            $('#left-panel').removeClass('visible');
+            panelVisible = false;
+        }
+    });
+    
+    // Keep panel visible when hovering over it
+    $('#left-panel').on('mouseenter', function() {
+        $(this).addClass('visible');
+        panelVisible = true;
+        panelHovered = true;
+    });
+    
+    $('#left-panel').on('mouseleave', function(e) {
+        panelHovered = false;
+        // Hide panel if mouse moves away from left edge
+        if (e.clientX > LEFT_PANEL_TRIGGER_DISTANCE + 280) {
+            $(this).removeClass('visible');
+            panelVisible = false;
+        }
+    });
+    
+    // Create document list item in sidebar
+    function createDocumentListItem(docData) {
+        const $item = $('<div>')
+            .addClass('document-list-item')
+            .attr('data-doc-name', docData.name)
+            .attr('data-doc-id', docData.id);
+        
+        const $icon = $('<div>')
+            .addClass('document-list-item-icon')
+            .text('📄');
+        
+        const $content = $('<div>').addClass('document-list-item-content');
+        const $title = $('<div>')
+            .addClass('document-list-item-title')
+            .text(docData.label || docData.name);
+        
+        const $subtitle = $('<div>')
+            .addClass('document-list-item-subtitle')
+            .text(`${docData.pages ? docData.pages.length : 0} page${docData.pages && docData.pages.length !== 1 ? 's' : ''}`);
+        
+        $content.append($title).append($subtitle);
+        $item.append($icon).append($content);
+        
+        // Set initial visibility state
+        updateDocumentListItemState($item, docData.name);
+        
+        return $item;
+    }
+    
+    // Update sidebar item visibility based on whether document is on canvas
+    function updateDocumentListItemState($item, docName) {
+        if (documentsOnCanvas.has(docName)) {
+            // Hide item if document is on canvas
+            $item.hide();
+        } else {
+            // Show item if document is not on canvas
+            $item.show();
+            const docData = allDocumentsData.find(d => d.name === docName);
+            if (docData) {
+                $item.find('.document-list-item-subtitle').text(`${docData.pages ? docData.pages.length : 0} page${docData.pages && docData.pages.length !== 1 ? 's' : ''}`);
+            }
+        }
+    }
+    
+    // Highlight existing document on canvas
+    function highlightExistingDocument(docName) {
+        const $existingDoc = $(`.rectangle[data-name="${docName}"]`);
+        if ($existingDoc.length) {
+            $existingDoc.addClass('highlight-existing');
+            setTimeout(() => {
+                $existingDoc.removeClass('highlight-existing');
+            }, 2000);
+        }
+    }
+    
+    // Make sidebar items draggable
+    function makeSidebarItemDraggable(element, docData) {
+        interact(element)
+            .draggable({
+                listeners: {
+                    start(event) {
+                        $(event.target).addClass('dragging');
+                        
+                        // Create a ghost element
+                        const $ghost = $(event.target).clone()
+                            .addClass('drag-ghost')
+                            .css({
+                                width: $(event.target).width() + 'px',
+                                opacity: 0.8
+                            });
+                        $('body').append($ghost);
+                    },
+                    move(event) {
+                        const $ghost = $('.drag-ghost');
+                        if ($ghost.length) {
+                            $ghost.css({
+                                left: (event.clientX - $ghost.width() / 2) + 'px',
+                                top: (event.clientY - 20) + 'px'
+                            });
+                        }
+                    },
+                    end(event) {
+                        $(event.target).removeClass('dragging');
+                        $('.drag-ghost').remove();
+                        
+                        // Check if dropped on canvas
+                        const dropX = event.clientX;
+                        const dropY = event.clientY;
+                        const canvasRect = $('#canvas')[0].getBoundingClientRect();
+                        
+                        if (dropX >= canvasRect.left && dropX <= canvasRect.right &&
+                            dropY >= canvasRect.top && dropY <= canvasRect.bottom) {
+                            
+                            // Create document at drop position
+                            const canvasX = dropX - canvasRect.left - (docData.width || 200) / 2;
+                            const canvasY = dropY - canvasRect.top - (docData.height || 280) / 2;
+                            
+                            // Create a copy of the document data with new position
+                            const newDocData = $.extend({}, docData, {
+                                id: ++rectangleCount,
+                                x: canvasX,
+                                y: canvasY
+                            });
+                            
+                            createRectangle(newDocData);
+                            documentsOnCanvas.add(docData.name);
+                            
+                            // Hide sidebar item since document is now on canvas
+                            const $listItem = $(`.document-list-item[data-doc-name="${docData.name}"]`);
+                            updateDocumentListItemState($listItem, docData.name);
+                        }
+                    }
+                }
+            });
+    }
 
+    // Initialize left panel dropzone
+    function initializePanelDropzone() {
+        const leftPanel = document.getElementById('left-panel');
+        if (leftPanel) {
+            interact(leftPanel)
+                .dropzone({
+                    accept: '.rectangle',
+                    overlap: 0.25,
+                    ondropactivate: function(event) {
+                        event.target.classList.add('drop-active');
+                    },
+                    ondragenter: function(event) {
+                        const draggableElement = event.relatedTarget;
+                        if (draggableElement) {
+                            $('#left-panel').addClass('drop-target');
+                        }
+                    },
+                    ondragleave: function(event) {
+                        $('#left-panel').removeClass('drop-target');
+                    },
+                    ondrop: function(event) {
+                        $('#left-panel').removeClass('drop-target');
+                    },
+                    ondropdeactivate: function(event) {
+                        event.target.classList.remove('drop-active');
+                        $('#left-panel').removeClass('drop-target');
+                    }
+                });
+        }
+    }
+    
     // Load rectangles from JSON
     $.getJSON('data.json', function(data) {
         if (data.rectangles && Array.isArray(data.rectangles)) {
+            // Store all documents data
+            allDocumentsData = data.rectangles;
+            
             // Set rectangle count to max ID from JSON
             rectangleCount = Math.max(...data.rectangles.map(r => r.id || 0), 0);
+            
+            // Populate sidebar with all documents (but don't create on canvas)
+            const $documentList = $('#document-list');
             data.rectangles.forEach(function(rect) {
-                createRectangle(rect);
+                const $listItem = createDocumentListItem(rect);
+                $documentList.append($listItem);
+                makeSidebarItemDraggable($listItem[0], rect);
             });
+            
+            // Initialize panel dropzone after documents are loaded
+            initializePanelDropzone();
         }
     }).fail(function() {
         console.error('Failed to load data.json');
