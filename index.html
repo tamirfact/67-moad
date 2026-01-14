@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,8 +21,30 @@
             </div>
         </div>
     </div>
+    <div id="action-tiles-container" class="action-tiles-container">
+        <!-- Action tiles will appear here while dragging -->
+    </div>
+    <div id="folder-indicator" class="folder-indicator">
+        <span class="material-icons">folder</span>
+    </div>
     <div id="canvas" class="canvas">
         <!-- Rectangles will be loaded from JSON -->
+    </div>
+    <div id="share-dialog" class="share-dialog">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <h3 id="dialog-title">Share Document</h3>
+                <button class="dialog-close" id="dialog-close">×</button>
+            </div>
+            <div class="dialog-body">
+                <p id="dialog-message">Document shared successfully!</p>
+            </div>
+            <div class="dialog-footer">
+                <button class="dialog-button dialog-button-secondary" id="dialog-cancel">Cancel</button>
+                <button class="dialog-button" id="dialog-share">Share</button>
+                <button class="dialog-button dialog-button-primary" id="dialog-share-close">Share and Close</button>
+            </div>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>

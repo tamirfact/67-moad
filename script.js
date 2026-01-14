@@ -181,9 +181,20 @@ $(document).ready(function() {
                 listeners: {
                     start(event) {
                         $(event.target).addClass('dragging');
+                        $('body').addClass('dragging-active');
+                        
+                        // Store current dragged document
+                        currentDraggedDocument = event.target;
                         
                         // Set highest z-index while dragging
                         event.target.style.zIndex = 10000;
+                        
+                        // Show action tiles for this document
+                        const docId = event.target.getAttribute('data-id');
+                        const docData = documentDataMap.get(event.target);
+                        if (docData && docData.actions && docData.actions.length > 0) {
+                            showActionTiles(docData.actions);
+                        }
                         
                         // Store cursor position at start
                         startCursorX = event.clientX;
@@ -213,6 +224,19 @@ $(document).ready(function() {
                     move(event) {
                         const target = event.target;
                         const size = getElementSize(target);
+                        
+                        // Check if cursor is in right 25% of screen
+                        const viewportWidth = window.innerWidth;
+                        const rightZoneStart = viewportWidth * 0.75;
+                        const $actionContainer = $('#action-tiles-container');
+                        
+                        if (event.clientX >= rightZoneStart && $actionContainer.hasClass('visible')) {
+                            // Slide action tiles into view
+                            $actionContainer.addClass('in-view');
+                        } else {
+                            // Slide action tiles out of view
+                            $actionContainer.removeClass('in-view');
+                        }
                         
                         // Get base position
                         const baseLeft = parseFloat(target.style.left) || 0;
@@ -257,37 +281,82 @@ $(document).ready(function() {
                     end(event) {
                         const target = event.target;
                         $(target).removeClass('dragging');
+                        $('body').removeClass('dragging-active');
                         
-                        // Check if dropped on left panel
+                        // Check if dropped on action tile first (using elementFromPoint as fallback)
                         const dropX = event.clientX;
                         const dropY = event.clientY;
-                        const panelRect = $('#left-panel')[0].getBoundingClientRect();
+                        const elementAtPoint = document.elementFromPoint(dropX, dropY);
+                        const $actionTile = $(elementAtPoint).closest('.action-tile');
                         
-                        if (dropX >= panelRect.left && dropX <= panelRect.right &&
-                            dropY >= panelRect.top && dropY <= panelRect.bottom) {
-                            // Remove document from canvas
-                            const docName = target.getAttribute('data-name');
-                            if (docName) {
-                                documentsOnCanvas.delete(docName);
+                        let droppedOnActionTile = false;
+                        if ($actionTile.length) {
+                            const actionText = $actionTile.attr('data-action');
+                            const docData = documentDataMap.get(target);
+                            if (docData && actionText) {
+                                // Store original state before transforming
+                                const currentTransform = window.getComputedStyle(target).transform;
+                                const matrix = new DOMMatrix(currentTransform);
+                                const currentX = parseFloat(target.getAttribute('data-x')) || 0;
+                                const currentY = parseFloat(target.getAttribute('data-y')) || 0;
+                                const currentTop = parseFloat(target.style.top) || 0;
+                                const currentLeft = parseFloat(target.style.left) || 0;
                                 
-                                // Remove document element
-                                $(target).remove();
+                                documentOriginalState = {
+                                    element: target,
+                                    x: currentX,
+                                    y: currentY,
+                                    top: currentTop,
+                                    left: currentLeft,
+                                    scale: matrix.a || 1,
+                                    transform: currentTransform
+                                };
                                 
-                                // Remove tooltip if exists
-                                const docId = target.getAttribute('data-id');
-                                $(`.rectangle-tooltip[data-rect-id="${docId}"]`).remove();
+                                // Scale down and shift right
+                                scaleDownAndShiftRight(target);
                                 
-                                // Update sidebar item state
-                                const $listItem = $(`.document-list-item[data-doc-name="${docName}"]`);
-                                updateDocumentListItemState($listItem, docName);
+                                showShareDialog(actionText, docData.label || docData.name, target);
+                                droppedOnActionTile = true;
                             }
-                        } else {
-                            // Update z-index based on final scale when released
-                            const currentTransform = window.getComputedStyle(target).transform;
-                            const matrix = new DOMMatrix(currentTransform);
-                            const finalScale = matrix.a || 1;
-                            updateZIndex(target, finalScale);
                         }
+                        
+                        // Hide action tiles
+                        hideActionTiles();
+                        
+                        if (!droppedOnActionTile) {
+                            // Check if dropped on left panel
+                            const panelRect = $('#left-panel')[0].getBoundingClientRect();
+                            
+                            if (dropX >= panelRect.left && dropX <= panelRect.right &&
+                                dropY >= panelRect.top && dropY <= panelRect.bottom) {
+                                // Remove document from canvas
+                                const docName = target.getAttribute('data-name');
+                                if (docName) {
+                                    documentsOnCanvas.delete(docName);
+                                    
+                                    // Remove document element
+                                    documentDataMap.delete(target);
+                                    $(target).remove();
+                                    
+                                    // Remove tooltip if exists
+                                    const docId = target.getAttribute('data-id');
+                                    $(`.rectangle-tooltip[data-rect-id="${docId}"]`).remove();
+                                    
+                                    // Update sidebar item state
+                                    const $listItem = $(`.document-list-item[data-doc-name="${docName}"]`);
+                                    updateDocumentListItemState($listItem, docName);
+                                }
+                            } else {
+                                // Update z-index based on final scale when released
+                                const currentTransform = window.getComputedStyle(target).transform;
+                                const matrix = new DOMMatrix(currentTransform);
+                                const finalScale = matrix.a || 1;
+                                updateZIndex(target, finalScale);
+                            }
+                        }
+                        
+                        // Clear current dragged document
+                        currentDraggedDocument = null;
                         
                         cursorOffsetX = null;
                         cursorOffsetY = null;
@@ -350,6 +419,9 @@ $(document).ready(function() {
         
         $('#canvas').append($rect);
         makeDraggable($rect[0]);
+        
+        // Store document data for action tiles
+        documentDataMap.set($rect[0], rectData);
         
         // Track document on canvas
         if (rectData.name) {
@@ -475,6 +547,10 @@ $(document).ready(function() {
     // Track which documents are on canvas (by name/id)
     let documentsOnCanvas = new Set();
     let allDocumentsData = [];
+    // Store document data by element for action tiles
+    let documentDataMap = new Map();
+    // Store original position/transform when dropping on action tile
+    let documentOriginalState = null;
     
     // Left panel functionality
     const LEFT_PANEL_TRIGGER_DISTANCE = 30;
@@ -487,10 +563,12 @@ $(document).ready(function() {
         
         if (distanceFromLeft <= LEFT_PANEL_TRIGGER_DISTANCE && !panelVisible) {
             $('#left-panel').addClass('visible');
+            $('#folder-indicator').addClass('hidden');
             panelVisible = true;
         } else if (distanceFromLeft > LEFT_PANEL_TRIGGER_DISTANCE + 280 && panelVisible && !panelHovered) {
             // Hide panel if mouse moves away (with some buffer) and not hovering panel
             $('#left-panel').removeClass('visible');
+            $('#folder-indicator').removeClass('hidden');
             panelVisible = false;
         }
     });
@@ -498,6 +576,7 @@ $(document).ready(function() {
     // Keep panel visible when hovering over it
     $('#left-panel').on('mouseenter', function() {
         $(this).addClass('visible');
+        $('#folder-indicator').addClass('hidden');
         panelVisible = true;
         panelHovered = true;
     });
@@ -507,6 +586,7 @@ $(document).ready(function() {
         // Hide panel if mouse moves away from left edge
         if (e.clientX > LEFT_PANEL_TRIGGER_DISTANCE + 280) {
             $(this).removeClass('visible');
+            $('#folder-indicator').removeClass('hidden');
             panelVisible = false;
         }
     });
@@ -554,6 +634,210 @@ $(document).ready(function() {
             }
         }
     }
+    
+    // Store current dragged document for action tiles
+    let currentDraggedDocument = null;
+    
+    // Show action tiles for a document
+    function showActionTiles(actions) {
+        const $container = $('#action-tiles-container');
+        $container.empty();
+        
+        actions.forEach(function(action) {
+            const $tile = $('<div>')
+                .addClass('action-tile')
+                .attr('data-action', action)
+                .html('<div class="action-tile-title">' + action + '</div>');
+            
+            $container.append($tile);
+            
+            // Make tile a dropzone - use lower overlap threshold
+            interact($tile[0])
+                .dropzone({
+                    accept: '.rectangle',
+                    overlap: 0.1,
+                    ondropactivate: function(event) {
+                        $(event.target).addClass('drag-over');
+                    },
+                    ondragenter: function(event) {
+                        $(event.target).addClass('drag-over');
+                    },
+                    ondragleave: function(event) {
+                        $(event.target).removeClass('drag-over');
+                    },
+                    ondrop: function(event) {
+                        const actionText = $(event.target).attr('data-action');
+                        const draggableElement = event.relatedTarget;
+                        if (draggableElement) {
+                            const docData = documentDataMap.get(draggableElement);
+                            if (docData) {
+                                // Store original state before transforming
+                                const currentTransform = window.getComputedStyle(draggableElement).transform;
+                                const matrix = new DOMMatrix(currentTransform);
+                                const currentX = parseFloat(draggableElement.getAttribute('data-x')) || 0;
+                                const currentY = parseFloat(draggableElement.getAttribute('data-y')) || 0;
+                                const currentTop = parseFloat(draggableElement.style.top) || 0;
+                                const currentLeft = parseFloat(draggableElement.style.left) || 0;
+                                
+                                documentOriginalState = {
+                                    element: draggableElement,
+                                    x: currentX,
+                                    y: currentY,
+                                    top: currentTop,
+                                    left: currentLeft,
+                                    scale: matrix.a || 1,
+                                    transform: currentTransform
+                                };
+                                
+                                // Scale down and shift right
+                                scaleDownAndShiftRight(draggableElement);
+                                
+                                showShareDialog(actionText, docData.label || docData.name, draggableElement);
+                            }
+                        }
+                        $(event.target).removeClass('drag-over');
+                    },
+                    ondropdeactivate: function(event) {
+                        $(event.target).removeClass('drag-over');
+                    }
+                });
+        });
+        
+        $container.addClass('visible');
+    }
+    
+    // Hide action tiles
+    function hideActionTiles() {
+        $('#action-tiles-container').removeClass('visible').removeClass('in-view').empty();
+    }
+    
+    // Scale down and shift document to the right
+    function scaleDownAndShiftRight(element) {
+        const viewportWidth = window.innerWidth;
+        const size = getElementSize(element);
+        
+        // Scale down to 0.5x
+        const newScale = 0.5;
+        
+        // Shift to the right (about 60% from left edge)
+        const newLeft = viewportWidth * 0.6;
+        const currentTop = parseFloat(element.style.top) || 0;
+        
+        element.style.top = currentTop + 'px';
+        element.style.left = newLeft + 'px';
+        element.style.transition = 'transform 0.3s ease-out, left 0.3s ease-out';
+        
+        const currentX = parseFloat(element.getAttribute('data-x')) || 0;
+        const currentY = parseFloat(element.getAttribute('data-y')) || 0;
+        element.style.transform = `translate(${currentX}px, ${currentY}px) scale(${newScale})`;
+        
+        updateZIndex(element, newScale);
+        
+        // Remove transition after animation
+        setTimeout(() => {
+            element.style.transition = '';
+        }, 300);
+    }
+    
+    // Restore document to original position
+    function restoreDocumentPosition() {
+        if (!documentOriginalState) return;
+        
+        const { element, x, y, top, left, scale } = documentOriginalState;
+        
+        element.style.transition = 'transform 0.3s ease-out, left 0.3s ease-out, top 0.3s ease-out';
+        element.style.top = top + 'px';
+        element.style.left = left + 'px';
+        element.setAttribute('data-x', x);
+        element.setAttribute('data-y', y);
+        element.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+        
+        updateZIndex(element, scale);
+        
+        // Remove transition after animation
+        setTimeout(() => {
+            element.style.transition = '';
+        }, 300);
+        
+        documentOriginalState = null;
+    }
+    
+    // Show share/print dialog
+    function showShareDialog(action, docLabel, docElement) {
+        const $dialog = $('#share-dialog');
+        const $title = $('#dialog-title');
+        const $message = $('#dialog-message');
+        
+        // Store reference to document element
+        $dialog.data('doc-element', docElement);
+        
+        // Determine if it's a print or share action
+        const isPrint = action.toLowerCase().includes('print');
+        
+        if (isPrint) {
+            $title.text('Print Document');
+            $message.text(`Printing "${docLabel}"...`);
+        } else {
+            $title.text('Share Document');
+            $message.text(`Sharing "${docLabel}" via ${action}...`);
+        }
+        
+        $dialog.addClass('show');
+    }
+    
+    // Close share dialog
+    $('#dialog-close').on('click', function() {
+        restoreDocumentPosition();
+        $('#share-dialog').removeClass('show');
+    });
+    
+    // Cancel button
+    $('#dialog-cancel').on('click', function() {
+        restoreDocumentPosition();
+        $('#share-dialog').removeClass('show');
+    });
+    
+    // Share button - keep document where it is
+    $('#dialog-share').on('click', function() {
+        documentOriginalState = null; // Clear original state since we're keeping it
+        $('#share-dialog').removeClass('show');
+    });
+    
+    // Share and Close button - remove document
+    $('#dialog-share-close').on('click', function() {
+        const $dialog = $('#share-dialog');
+        const docElement = $dialog.data('doc-element');
+        
+        if (docElement) {
+            const docName = docElement.getAttribute('data-name');
+            if (docName) {
+                documentsOnCanvas.delete(docName);
+                
+                // Remove document element
+                documentDataMap.delete(docElement);
+                $(docElement).remove();
+                
+                // Remove tooltip if exists
+                const docId = docElement.getAttribute('data-id');
+                $(`.rectangle-tooltip[data-rect-id="${docId}"]`).remove();
+                
+                // Update sidebar item state
+                const $listItem = $(`.document-list-item[data-doc-name="${docName}"]`);
+                updateDocumentListItemState($listItem, docName);
+            }
+        }
+        
+        documentOriginalState = null;
+        $('#share-dialog').removeClass('show');
+    });
+    
+    // Close dialog when clicking outside
+    $('#share-dialog').on('click', function(e) {
+        if (e.target === this) {
+            restoreDocumentPosition();
+            $(this).removeClass('show');
+        }
+    });
     
     // Highlight existing document on canvas
     function highlightExistingDocument(docName) {

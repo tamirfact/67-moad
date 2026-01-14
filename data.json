@@ -11,7 +11,11 @@
       "width": 200,
       "height": 280,
       "x": 100,
-      "y": 150
+      "y": 150,
+      "actions": [
+        "Send to Ori",
+        "Send to Slack channel"
+      ]
     },
     {
       "id": 2,
@@ -25,7 +29,12 @@
       "width": 200,
       "height": 280,
       "x": 350,
-      "y": 200
+      "y": 200,
+      "actions": [
+        "Send to Ori",
+        "Send to Slack channel",
+        "Send to Team"
+      ]
     },
     {
       "id": 3,
@@ -39,7 +48,11 @@
       "width": 200,
       "height": 280,
       "x": 200,
-      "y": 350
+      "y": 350,
+      "actions": [
+        "Send to Ori",
+        "Print"
+      ]
     },
     {
       "id": 4,
@@ -51,7 +64,12 @@
       "width": 200,
       "height": 280,
       "x": 500,
-      "y": 100
+      "y": 100,
+      "actions": [
+        "Send to Slack channel",
+        "Send to Team",
+        "Print"
+      ]
     }
   ]
 }
