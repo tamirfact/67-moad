@@ -780,8 +780,16 @@ $(document).ready(function() {
     
     // Function to create a rectangle (document pile) from JSON data
     function createRectangle(rectData) {
-        const width = rectData.width || 200;
-        const height = rectData.height || 280;
+        let width = rectData.width || 200;
+        let height = rectData.height || 280;
+        
+        // Cap height at 90vh and scale width proportionally
+        const maxHeight = window.innerHeight * 0.5; // 90vh in pixels
+        if (height > maxHeight) {
+            const scaleFactor = maxHeight / height;
+            width = Math.round(width * scaleFactor);
+            height = Math.round(maxHeight);
+        }
         
         const $rect = $('<div>')
             .addClass('rectangle')
