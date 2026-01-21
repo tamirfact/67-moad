@@ -15,7 +15,8 @@
       "actions": [
         "Send to Ori",
         "Send to Slack channel"
-      ]
+      ],
+      "text": "# Project 101 - Technical Specifications\n\n## Overview\n\nProject 101 is a comprehensive technical specification document outlining the architecture, requirements, and implementation details for a new software system.\n\n## Key Features\n\n- **Scalable Architecture**: Designed to handle high traffic loads\n- **Modern Stack**: Built with latest technologies\n- **Security First**: Implements industry-standard security practices\n\n## Technical Requirements\n\n1. Performance: Response time < 200ms\n2. Availability: 99.9% uptime SLA\n3. Scalability: Support for 1M+ concurrent users\n\n## Implementation Timeline\n\n- Phase 1: Core functionality (Q1)\n- Phase 2: Advanced features (Q2)\n- Phase 3: Optimization (Q3)"
     },
     {
       "id": 2,
@@ -34,7 +35,8 @@
         "Send to Ori",
         "Send to Slack channel",
         "Send to Team"
-      ]
+      ],
+      "text": "# Architecture Documentation\n\n## System Architecture\n\nThe system follows a microservices architecture pattern with the following components:\n\n### Core Services\n\n- **API Gateway**: Entry point for all client requests\n- **Authentication Service**: Handles user authentication and authorization\n- **Data Service**: Manages data persistence and retrieval\n- **Notification Service**: Handles real-time notifications\n\n### Infrastructure\n\n- **Load Balancer**: Distributes traffic across service instances\n- **Database Cluster**: PostgreSQL with read replicas\n- **Cache Layer**: Redis for session and data caching\n- **Message Queue**: RabbitMQ for async processing\n\n## Design Patterns\n\n- **Circuit Breaker**: Prevents cascading failures\n- **Retry Logic**: Automatic retry for transient failures\n- **Event Sourcing**: For audit trails and state reconstruction"
     },
     {
       "id": 3,
@@ -52,7 +54,8 @@
       "actions": [
         "Send to Ori",
         "Print"
-      ]
+      ],
+      "text": "# Quarterly Report - Q4 2024\n\n## Executive Summary\n\nQ4 2024 showed strong growth across all key metrics. Revenue increased by 25% compared to Q3, with significant improvements in user engagement and product adoption.\n\n## Key Metrics\n\n| Metric | Q3 2024 | Q4 2024 | Change |\n|--------|---------|---------|--------|\n| Revenue | $2.5M | $3.1M | +24% |\n| Active Users | 50K | 65K | +30% |\n| Customer Satisfaction | 4.2 | 4.6 | +9.5% |\n\n## Highlights\n\n- Launched new product features\n- Expanded to 3 new markets\n- Improved customer retention by 15%\n- Reduced operational costs by 10%\n\n## Next Quarter Goals\n\n- Target revenue of $3.5M\n- Expand team by 20%\n- Launch mobile app\n- Improve NPS score to 50+"
     },
     {
       "id": 4,
@@ -69,7 +72,8 @@
         "Send to Slack channel",
         "Send to Team",
         "Print"
-      ]
+      ],
+      "text": "# Technical Evaluation\n\n## Evaluation Criteria\n\nThis document evaluates three potential technology solutions based on:\n\n1. **Performance**: Response time and throughput\n2. **Scalability**: Ability to handle growth\n3. **Cost**: Total cost of ownership\n4. **Maintainability**: Ease of development and support\n\n## Solutions Evaluated\n\n### Option A: Cloud-Native Platform\n\n**Pros:**\n- Excellent scalability\n- Managed infrastructure\n- High availability\n\n**Cons:**\n- Higher cost\n- Vendor lock-in\n- Learning curve\n\n### Option B: Self-Hosted Solution\n\n**Pros:**\n- Full control\n- Lower long-term cost\n- Customizable\n\n**Cons:**\n- Requires DevOps expertise\n- Higher initial setup time\n- Maintenance overhead\n\n### Option C: Hybrid Approach\n\n**Pros:**\n- Balanced cost and control\n- Flexible deployment\n- Gradual migration path\n\n**Cons:**\n- More complex architecture\n- Requires careful planning\n\n## Recommendation\n\n**Option C (Hybrid Approach)** is recommended for its balance of flexibility, cost-effectiveness, and scalability."
     }
   ]
 }

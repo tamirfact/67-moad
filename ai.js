@@ -1,5 +1,9 @@
 // AI Chat Interface
-// This file handles all AI-related functionality including chat, document chips, and mock server communication
+// This file handles all AI-related functionality including chat, document chips, and Gemini API communication
+
+import $ from 'jquery';
+import { GoogleGenAI } from '@google/genai';
+import { marked } from 'marked';
 
 $(document).ready(function() {
     // AI State
@@ -25,6 +29,7 @@ $(document).ready(function() {
                     name: docName,
                     id: docId,
                     label: docData.label || docData.name || docName,
+                    text: docData.text || '', // Include markdown text
                     element: rect
                 });
             }
@@ -123,23 +128,35 @@ $(document).ready(function() {
     }
 
     // Create chat message bubble
-    function createChatMessage(text, isUser) {
+    function createChatMessage(text, isUser, isStreaming = false) {
         const $message = $('<div>')
             .addClass('ai-chat-message')
             .addClass(isUser ? 'ai-message-user' : 'ai-message-assistant');
         
         const $bubble = $('<div>')
-            .addClass('ai-chat-bubble')
-            .text(text);
+            .addClass('ai-chat-bubble');
+        
+        if (isUser) {
+            // User messages are plain text
+            $bubble.text(text);
+        } else {
+            // Assistant messages are markdown
+            $bubble.addClass('ai-markdown-content');
+            if (isStreaming) {
+                $bubble.html(marked.parse(text));
+            } else {
+                $bubble.html(marked.parse(text));
+            }
+        }
         
         $message.append($bubble);
         return $message;
     }
 
     // Add message to chat
-    function addChatMessage(text, isUser) {
+    function addChatMessage(text, isUser, isStreaming = false) {
         const $container = $('#ai-chat-container');
-        const $message = createChatMessage(text, isUser);
+        const $message = createChatMessage(text, isUser, isStreaming);
         
         $container.append($message);
         
@@ -150,6 +167,18 @@ $(document).ready(function() {
         setTimeout(function() {
             $message.addClass('ai-message-visible');
         }, 10);
+        
+        return $message;
+    }
+
+    // Update streaming message
+    function updateStreamingMessage($message, text) {
+        const $bubble = $message.find('.ai-chat-bubble');
+        $bubble.html(marked.parse(text));
+        
+        // Scroll to bottom
+        const $container = $('#ai-chat-container');
+        $container.scrollTop($container[0].scrollHeight);
     }
 
     // Show thinking animation
@@ -190,26 +219,70 @@ $(document).ready(function() {
         });
     }
 
-    // Mock server - simulates AI response
-    function sendToMockServer(message) {
-        // Simulate network delay
-        const delay = 1000 + Math.random() * 2000; // 1-3 seconds
-        
-        return new Promise(function(resolve) {
-            setTimeout(function() {
-                // Generate a mock response based on the message
-                const responses = [
-                    "I understand you're asking about: " + message + ". Based on the documents you have open, I can help you analyze the content.",
-                    "That's an interesting question! Looking at your current documents, I can see several relevant points that might help.",
-                    "Great question! From what I can see in your workspace, here's what I found: The documents contain valuable information that relates to your query.",
-                    "Based on the documents you've shared, I can provide insights on: " + message.substring(0, 50) + "...",
-                    "I've analyzed your question in context of the open documents. Here's what stands out: The information suggests several key points worth exploring further."
-                ];
+    // Get Gemini API client
+    function getGeminiClient() {
+        const apiKey = localStorage.getItem('gemini_api_key');
+        if (!apiKey) {
+            throw new Error('API key not set. Please configure your Gemini API key in settings (CMD+,).');
+        }
+        return new GoogleGenAI({ apiKey });
+    }
+
+    // Send message to Gemini API with streaming
+    async function sendToGemini(message, onStreamChunk) {
+        try {
+            const ai = getGeminiClient();
+            
+            // Get context about documents on canvas
+            const documents = getDocumentsOnCanvas();
+            let contextMessage = message;
+            
+            if (documents.length > 0) {
+                // Build context with document names and their text content
+                const docContexts = documents.map(doc => {
+                    let docContext = `Document: "${doc.label || doc.name}"`;
+                    if (doc.text && doc.text.trim()) {
+                        docContext += `\n\nContent:\n${doc.text}`;
+                    }
+                    return docContext;
+                }).join('\n\n---\n\n');
                 
-                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-                resolve(randomResponse);
-            }, delay);
-        });
+                contextMessage = `The user has these documents open:\n\n${docContexts}\n\nUser question: ${message}`;
+            }
+            
+            // Use streaming for better UX
+            let fullText = '';
+            const stream = await ai.models.generateContentStream({
+                model: 'gemini-2.0-flash-exp',
+                contents: contextMessage
+            });
+            
+            // Process stream chunks
+            for await (const chunk of stream) {
+                const chunkText = chunk.text || '';
+                fullText += chunkText;
+                
+                // Call callback for each chunk if provided
+                if (onStreamChunk) {
+                    onStreamChunk(fullText);
+                }
+            }
+            
+            return fullText;
+        } catch (error) {
+            console.error('Gemini API error:', error);
+            
+            // Provide user-friendly error messages
+            if (error.message && error.message.includes('API key')) {
+                throw new Error('API key not configured. Press CMD+, to open settings and add your Gemini API key.');
+            } else if (error.message && error.message.includes('quota')) {
+                throw new Error('API quota exceeded. Please check your Google Cloud billing.');
+            } else if (error.message && error.message.includes('safety')) {
+                throw new Error('Your message was blocked by safety filters. Please try rephrasing.');
+            } else {
+                throw new Error('Failed to get response from Gemini. Please check your API key and try again.');
+            }
+        }
     }
 
     // Handle message send
@@ -226,11 +299,41 @@ $(document).ready(function() {
         // Show thinking animation
         showThinking();
         
-        // Send to mock server
-        sendToMockServer(message).then(function(response) {
-            hideThinking();
-            addChatMessage(response, false);
-        });
+        // Create streaming message container
+        let $streamingMessage = null;
+        let streamingText = '';
+        
+        // Send to Gemini API with streaming
+        sendToGemini(message, function(chunkText) {
+            // Hide thinking animation on first chunk
+            if (aiState.thinking) {
+                hideThinking();
+            }
+            
+            // Create or update streaming message
+            if (!$streamingMessage) {
+                streamingText = chunkText;
+                $streamingMessage = addChatMessage(streamingText, false, true);
+            } else {
+                streamingText = chunkText;
+                updateStreamingMessage($streamingMessage, streamingText);
+            }
+        })
+            .then(function(finalText) {
+                // Ensure final message is displayed
+                if ($streamingMessage) {
+                    updateStreamingMessage($streamingMessage, finalText);
+                } else {
+                    hideThinking();
+                    addChatMessage(finalText, false);
+                }
+            })
+            .catch(function(error) {
+                hideThinking();
+                // Show error message to user
+                const errorMessage = error.message || 'An error occurred while processing your request.';
+                addChatMessage('Error: ' + errorMessage, false);
+            });
     }
 
     // Open AI input overlay

@@ -1,3 +1,7 @@
+import $ from 'jquery';
+import './settings.js';
+import './ai.js';
+
 $(document).ready(function() {
     const ICON_WIDTH = 80; // Fixed icon width
     const TRANSITION_ZONE = 200; // Distance from edge where scaling starts

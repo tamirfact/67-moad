@@ -94,11 +94,44 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <div id="settings-overlay" class="settings-overlay">
+        <div class="settings-container">
+            <div class="settings-header">
+                <h3>Settings</h3>
+                <button class="settings-close" id="settings-close" title="Close">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+            <div class="settings-body">
+                <div class="settings-section">
+                    <label for="gemini-api-key" class="settings-label">Google Gemini API Key</label>
+                    <input 
+                        type="password" 
+                        id="gemini-api-key" 
+                        class="settings-input" 
+                        placeholder="Enter your Gemini API key"
+                        autocomplete="off"
+                    />
+                    <p class="settings-hint">
+                        Your API key is stored locally in your browser. Get your key from 
+                        <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.
+                    </p>
+                </div>
+            </div>
+            <div class="settings-footer">
+                <button class="settings-button settings-button-secondary" id="settings-cancel">Cancel</button>
+                <button class="settings-button settings-button-primary" id="settings-save">Save</button>
+            </div>
+            <div id="settings-saved-message" class="settings-saved-message">
+                <span class="material-icons">check_circle</span>
+                <span>Settings saved!</span>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.js"></script>
-    <script src="script.js"></script>
-    <script src="ai.js"></script>
+    <script type="module" src="/script.js"></script>
 </body>
 </html>
