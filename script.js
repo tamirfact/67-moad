@@ -140,33 +140,434 @@ $(document).ready(function() {
         }, 500);
     }
     
-    // Handle double-click on document - center it and move others to edges
+    // Handle double-click on document - open in viewer mode
     function handleDocumentDoubleClick(clickedElement) {
-        const allRectangles = document.querySelectorAll('.rectangle');
-        const viewportHeight = window.innerHeight;
-        const center = viewportHeight / 2;
+        const docData = documentDataMap.get(clickedElement);
+        if (docData) {
+            openDocumentViewer(docData, clickedElement);
+        }
+    }
+    
+    // Viewer state
+    let viewerState = {
+        isOpen: false,
+        currentDocData: null,
+        sourceElement: null,
+        zoomLevel: 1.0,
+        pagePositions: []
+    };
+    
+    // Open document viewer
+    function openDocumentViewer(docData, sourceElement) {
+        if (viewerState.isOpen) {
+            return; // Already open
+        }
         
-        allRectangles.forEach(function(rect) {
-            if (rect === clickedElement) {
-                // Center the clicked document
-                centerDocument(rect);
+        viewerState.isOpen = true;
+        viewerState.currentDocData = docData;
+        viewerState.sourceElement = sourceElement;
+        viewerState.zoomLevel = 1.0;
+        
+        const $overlay = $('#pdf-viewer-overlay');
+        const $pagesContainer = $('#pdf-viewer-pages');
+        const $title = $('#pdf-viewer-title');
+        
+        // Set document title
+        $title.text(docData.label || docData.name || 'Document');
+        
+        // Clear previous pages
+        $pagesContainer.empty();
+        
+        // Store original positions of pages for animation
+        // Capture position immediately before showing overlay
+        const sourceRect = sourceElement.getBoundingClientRect();
+        const sourceTransform = window.getComputedStyle(sourceElement).transform;
+        const matrix = new DOMMatrix(sourceTransform);
+        const sourceScale = matrix.a || 1;
+        
+        const pages = docData.pages || [];
+        viewerState.pagePositions = [];
+        
+        // Create page elements
+        pages.forEach(function(pagePath, index) {
+            const $page = $('<div>').addClass('pdf-viewer-page');
+            const $img = $('<img>')
+                .attr('src', pagePath)
+                .attr('alt', `Page ${index + 1}`);
+            
+            $page.append($img);
+            $pagesContainer.append($page);
+            
+            // Calculate initial position (from source element)
+            const pageOffset = index * 2; // Small offset from pile
+            const initialX = sourceRect.left + pageOffset;
+            const initialY = sourceRect.top + pageOffset;
+            const initialWidth = sourceRect.width * sourceScale;
+            const initialHeight = sourceRect.height * sourceScale;
+            
+            // Store initial position
+            viewerState.pagePositions.push({
+                element: $page[0],
+                initialX: initialX,
+                initialY: initialY,
+                initialWidth: initialWidth,
+                initialHeight: initialHeight
+            });
+            
+            // Set initial position and size (matching source element)
+            $page.css({
+                position: 'fixed',
+                left: initialX + 'px',
+                top: initialY + 'px',
+                width: initialWidth + 'px',
+                height: initialHeight + 'px',
+                transform: 'translate(0, 0)',
+                opacity: 1,
+                zIndex: 10000001
+            });
+        });
+        
+        // Set initial zoom level display
+        $('#pdf-viewer-zoom-level').text('100%');
+        
+        // Show overlay
+        $overlay.addClass('active');
+        
+        // Animate pages to final positions
+        setTimeout(function() {
+            animatePagesToViewer();
+        }, 50);
+    }
+    
+    // Animate pages from initial positions to viewer layout
+    function animatePagesToViewer() {
+        const $pagesContainer = $('#pdf-viewer-pages');
+        const $pages = $pagesContainer.find('.pdf-viewer-page');
+        const viewportWidth = window.innerWidth;
+        
+        // Calculate page width (fit to container with some padding)
+        const maxPageWidth = Math.min(viewportWidth - 80, 800);
+        const pageWidth = maxPageWidth;
+        
+        // Calculate vertical spacing
+        const pageSpacing = 20;
+        let currentTop = 40; // Start position
+        
+        // First, ensure all images are loaded and calculate positions
+        let loadedCount = 0;
+        const totalPages = $pages.length;
+        
+        function updatePagePositions() {
+            if (loadedCount < totalPages) {
+                return; // Wait for all images
+            }
+            
+            // Get container position relative to viewport
+            const containerRect = $pagesContainer[0].getBoundingClientRect();
+            const toolbarHeight = $('.pdf-viewer-toolbar').outerHeight() || 48;
+            
+            currentTop = 40;
+            
+            $pages.each(function(index) {
+                const $page = $(this);
+                const $img = $page.find('img');
+                
+                // Calculate final position relative to container
+                const finalLeftRelative = (viewportWidth - pageWidth) / 2;
+                const finalTopRelative = currentTop;
+                
+                // Convert to fixed coordinates (relative to viewport)
+                const finalLeftFixed = finalLeftRelative;
+                const finalTopFixed = containerRect.top + finalTopRelative;
+                
+                // Get image dimensions
+                const imgWidth = $img[0].naturalWidth || $img[0].width;
+                const imgHeight = $img[0].naturalHeight || $img[0].height;
+                const aspectRatio = imgHeight / imgWidth;
+                const pageHeight = pageWidth * aspectRatio;
+                
+                // Animate to fixed position first
+                $page.css({
+                    position: 'fixed',
+                    left: finalLeftFixed + 'px',
+                    top: finalTopFixed + 'px',
+                    width: pageWidth + 'px',
+                    height: pageHeight + 'px',
+                    transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transform: 'translate(0, 0)',
+                    opacity: 1,
+                    zIndex: 10000001
+                });
+                
+                // After animation, switch to absolute positioning
+                setTimeout(function() {
+                    $page.css({
+                        position: 'absolute',
+                        left: finalLeftRelative + 'px',
+                        top: finalTopRelative + 'px',
+                        zIndex: 'auto'
+                    });
+                }, 600);
+                
+                currentTop += pageHeight + pageSpacing;
+            });
+            
+            // Update container height
+            $pagesContainer.css('min-height', (currentTop + 40) + 'px');
+        }
+        
+        // Wait for images to load
+        $pages.each(function(index) {
+            const $page = $(this);
+            const $img = $page.find('img');
+            
+            if ($img[0].complete && $img[0].naturalWidth > 0) {
+                loadedCount++;
+                if (loadedCount === totalPages) {
+                    setTimeout(updatePagePositions, 50);
+                }
             } else {
-                // Move others to edges
-                const baseTop = parseFloat(rect.style.top) || 0;
-                const currentY = parseFloat(rect.getAttribute('data-y')) || 0;
-                const size = getElementSize(rect);
-                const centerY = baseTop + currentY + size.height / 2;
+                $img.on('load', function() {
+                    loadedCount++;
+                    if (loadedCount === totalPages) {
+                        setTimeout(updatePagePositions, 50);
+                    }
+                });
                 
-                // Determine which edge is closer
-                const distanceFromTop = centerY;
-                const distanceFromBottom = viewportHeight - centerY;
-                const snapToTop = distanceFromTop < distanceFromBottom;
-                
-                // Move to edge as icon
-                moveToEdgeAsIcon(rect, snapToTop);
+                // Handle error case
+                $img.on('error', function() {
+                    loadedCount++;
+                    if (loadedCount === totalPages) {
+                        setTimeout(updatePagePositions, 50);
+                    }
+                });
             }
         });
+        
+        // Fallback if all images are already loaded
+        if (loadedCount === totalPages) {
+            setTimeout(updatePagePositions, 50);
+        }
     }
+    
+    // Close document viewer
+    function closeDocumentViewer() {
+        if (!viewerState.isOpen) {
+            return;
+        }
+        
+        const $overlay = $('#pdf-viewer-overlay');
+        const $pages = $('#pdf-viewer-pages').find('.pdf-viewer-page');
+        const sourceElement = viewerState.sourceElement;
+        
+        if (!sourceElement) {
+            // Just close without animation
+            $overlay.removeClass('active');
+            viewerState.isOpen = false;
+            viewerState.currentDocData = null;
+            viewerState.sourceElement = null;
+            return;
+        }
+        
+        // Animate pages back to source element
+        // Get current source element position (it might have moved)
+        const currentSourceRect = sourceElement.getBoundingClientRect();
+        const sourceTransform = window.getComputedStyle(sourceElement).transform;
+        const matrix = new DOMMatrix(sourceTransform);
+        const sourceScale = matrix.a || 1;
+        
+        $pages.each(function(index) {
+            const $page = $(this);
+            const pageData = viewerState.pagePositions[index];
+            
+            if (pageData) {
+                const pageOffset = index * 2;
+                const finalX = currentSourceRect.left + pageOffset;
+                const finalY = currentSourceRect.top + pageOffset;
+                const finalWidth = currentSourceRect.width * sourceScale;
+                const finalHeight = currentSourceRect.height * sourceScale;
+                
+                // Switch to fixed positioning for animation back
+                requestAnimationFrame(function() {
+                    $page.css({
+                        position: 'fixed',
+                        left: finalX + 'px',
+                        top: finalY + 'px',
+                        width: finalWidth + 'px',
+                        height: finalHeight + 'px',
+                        transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                        opacity: 0,
+                        zIndex: 10000001
+                    });
+                });
+            }
+        });
+        
+        // Hide overlay after animation
+        setTimeout(function() {
+            $overlay.removeClass('active');
+            $('#pdf-viewer-pages').empty();
+            viewerState.isOpen = false;
+            viewerState.currentDocData = null;
+            viewerState.sourceElement = null;
+            viewerState.pagePositions = [];
+        }, 600);
+    }
+    
+    // Zoom functions
+    function zoomViewer(zoomDelta) {
+        const newZoom = Math.max(0.5, Math.min(3.0, viewerState.zoomLevel + zoomDelta));
+        viewerState.zoomLevel = newZoom;
+        
+        const $pagesContainer = $('#pdf-viewer-pages');
+        const $pages = $pagesContainer.find('.pdf-viewer-page');
+        const viewportWidth = window.innerWidth;
+        const basePageWidth = Math.min(viewportWidth - 80, 800);
+        const newPageWidth = basePageWidth * newZoom;
+        
+        let currentTop = 40;
+        
+        $pages.each(function() {
+            const $page = $(this);
+            const $img = $page.find('img');
+            
+            // Calculate new height based on aspect ratio
+            const imgWidth = $img[0].naturalWidth || $img[0].width;
+            const imgHeight = $img[0].naturalHeight || $img[0].height;
+            const aspectRatio = imgHeight / imgWidth;
+            const newPageHeight = newPageWidth * aspectRatio;
+            
+            $page.css({
+                width: newPageWidth + 'px',
+                height: newPageHeight + 'px',
+                left: ((viewportWidth - newPageWidth) / 2) + 'px',
+                top: currentTop + 'px',
+                transition: 'all 0.3s ease'
+            });
+            
+            currentTop += newPageHeight + 20;
+        });
+        
+        $('#pdf-viewer-zoom-level').text(Math.round(newZoom * 100) + '%');
+        $pagesContainer.css('min-height', (currentTop + 40) + 'px');
+    }
+    
+    function fitToWidth() {
+        const $pagesContainer = $('#pdf-viewer-pages');
+        const viewportWidth = window.innerWidth;
+        const maxPageWidth = viewportWidth - 80;
+        
+        const basePageWidth = Math.min(viewportWidth - 80, 800);
+        viewerState.zoomLevel = maxPageWidth / basePageWidth;
+        viewerState.zoomLevel = Math.max(0.5, Math.min(3.0, viewerState.zoomLevel));
+        
+        const $pages = $pagesContainer.find('.pdf-viewer-page');
+        let currentTop = 40;
+        
+        $pages.each(function() {
+            const $page = $(this);
+            const $img = $page.find('img');
+            
+            // Calculate height based on aspect ratio
+            const imgWidth = $img[0].naturalWidth || $img[0].width;
+            const imgHeight = $img[0].naturalHeight || $img[0].height;
+            const aspectRatio = imgHeight / imgWidth;
+            const pageHeight = maxPageWidth * aspectRatio;
+            
+            $page.css({
+                width: maxPageWidth + 'px',
+                height: pageHeight + 'px',
+                left: ((viewportWidth - maxPageWidth) / 2) + 'px',
+                top: currentTop + 'px',
+                transition: 'all 0.3s ease'
+            });
+            
+            currentTop += pageHeight + 20;
+        });
+        
+        $('#pdf-viewer-zoom-level').text(Math.round(viewerState.zoomLevel * 100) + '%');
+        $pagesContainer.css('min-height', (currentTop + 40) + 'px');
+    }
+    
+        // Viewer event handlers
+    $(document).ready(function() {
+        $('#pdf-viewer-close').on('click', function() {
+            closeDocumentViewer();
+        });
+        
+        $('#pdf-viewer-zoom-in').on('click', function() {
+            zoomViewer(0.25);
+        });
+        
+        $('#pdf-viewer-zoom-out').on('click', function() {
+            zoomViewer(-0.25);
+        });
+        
+        $('#pdf-viewer-fit-width').on('click', function() {
+            fitToWidth();
+        });
+        
+        // Close on overlay click
+        $('#pdf-viewer-overlay').on('click', function(e) {
+            if (e.target === this) {
+                closeDocumentViewer();
+            }
+        });
+        
+        // Prevent closing when clicking on viewer content
+        $('.pdf-viewer-container').on('click', function(e) {
+            e.stopPropagation();
+        });
+        
+        // Handle window resize
+        let resizeTimeout;
+        $(window).on('resize', function() {
+            if (viewerState.isOpen) {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(function() {
+                    // Recalculate page positions on resize
+                    const $pagesContainer = $('#pdf-viewer-pages');
+                    const $pages = $pagesContainer.find('.pdf-viewer-page');
+                    const viewportWidth = window.innerWidth;
+                    const basePageWidth = Math.min(viewportWidth - 80, 800);
+                    const pageWidth = basePageWidth * viewerState.zoomLevel;
+                    
+                    let currentTop = 40;
+                    
+                    $pages.each(function() {
+                        const $page = $(this);
+                        const $img = $page.find('img');
+                        const imgWidth = $img[0].naturalWidth || $img[0].width;
+                        const imgHeight = $img[0].naturalHeight || $img[0].height;
+                        const aspectRatio = imgHeight / imgWidth;
+                        const pageHeight = pageWidth * aspectRatio;
+                        
+                        $page.css({
+                            width: pageWidth + 'px',
+                            height: pageHeight + 'px',
+                            left: ((viewportWidth - pageWidth) / 2) + 'px',
+                            top: currentTop + 'px'
+                        });
+                        
+                        currentTop += pageHeight + 20;
+                    });
+                    
+                    $pagesContainer.css('min-height', (currentTop + 40) + 'px');
+                }, 250);
+            }
+        });
+        
+        // Handle ESC key to close viewer
+        $(document).on('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (viewerState.isOpen) {
+                    closeDocumentViewer();
+                } else if (typeof closeAIInput !== 'undefined') {
+                    closeAIInput();
+                }
+            }
+        });
+    });
     
     // Function to make a rectangle draggable
     function makeDraggable(element) {
@@ -552,6 +953,10 @@ $(document).ready(function() {
     // Store original position/transform when dropping on action tile
     let documentOriginalState = null;
     
+    // Make document tracking accessible globally for ai.js
+    window.documentsOnCanvas = documentsOnCanvas;
+    window.documentDataMap = documentDataMap;
+    
     // Left panel functionality
     const LEFT_PANEL_TRIGGER_DISTANCE = 30;
     let panelVisible = false;
@@ -634,6 +1039,9 @@ $(document).ready(function() {
             }
         }
     }
+    
+    // Make updateDocumentListItemState accessible globally for ai.js
+    window.updateDocumentListItemState = updateDocumentListItemState;
     
     // Store current dragged document for action tiles
     let currentDraggedDocument = null;

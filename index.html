@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -47,8 +48,57 @@
         </div>
     </div>
 
+    <div id="pdf-viewer-overlay" class="pdf-viewer-overlay">
+        <div class="pdf-viewer-container">
+            <div class="pdf-viewer-toolbar">
+                <div class="pdf-viewer-toolbar-left">
+                    <button class="pdf-viewer-button" id="pdf-viewer-close" title="Close">
+                        <span class="material-icons">close</span>
+                    </button>
+                    <div class="pdf-viewer-title" id="pdf-viewer-title"></div>
+                </div>
+                <div class="pdf-viewer-toolbar-center">
+                    <button class="pdf-viewer-button" id="pdf-viewer-zoom-out" title="Zoom Out">
+                        <span class="material-icons">zoom_out</span>
+                    </button>
+                    <span class="pdf-viewer-zoom-level" id="pdf-viewer-zoom-level">100%</span>
+                    <button class="pdf-viewer-button" id="pdf-viewer-zoom-in" title="Zoom In">
+                        <span class="material-icons">zoom_in</span>
+                    </button>
+                </div>
+                <div class="pdf-viewer-toolbar-right">
+                    <button class="pdf-viewer-button" id="pdf-viewer-fit-width" title="Fit to Width">
+                        <span class="material-icons">fit_screen</span>
+                    </button>
+                </div>
+            </div>
+            <div class="pdf-viewer-pages-container" id="pdf-viewer-pages-container">
+                <div class="pdf-viewer-pages" id="pdf-viewer-pages">
+                    <!-- Pages will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-input-overlay" class="ai-input-overlay">
+        <div class="ai-container">
+            <div class="ai-chips-container" id="ai-chips-container">
+                <!-- Document chips will be inserted here -->
+            </div>
+            <div class="ai-chat-container" id="ai-chat-container">
+                <!-- Chat messages will be inserted here -->
+            </div>
+            <div class="ai-input-container">
+                <input type="text" id="ai-input" class="ai-input" placeholder="Ask anything..." autocomplete="off" />
+            </div>
+        </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.js"></script>
     <script src="script.js"></script>
+    <script src="ai.js"></script>
 </body>
 </html>

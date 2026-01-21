@@ -348,11 +348,6 @@ body.dragging-active {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-.action-tile.drag-over {
-    /* background-color: #e9e9e7; */
-    /* border-color: #37352f; */
-    /* transform: translateX(-8px); */
-}
 
 .action-tile-title {
     font-size: 14px;
@@ -477,4 +472,412 @@ body.dragging-active {
     background-color: #f7f6f3;
     color: #37352f;
     border-color: #d4d4d1;
+}
+
+/* PDF Viewer Styles */
+.pdf-viewer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 10000000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    overflow: hidden;
+}
+
+.pdf-viewer-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.pdf-viewer-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #525252;
+}
+
+.pdf-viewer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background-color: #2e2e2e;
+    border-bottom: 1px solid #1a1a1a;
+    min-height: 48px;
+    z-index: 10;
+}
+
+.pdf-viewer-toolbar-left,
+.pdf-viewer-toolbar-center,
+.pdf-viewer-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pdf-viewer-toolbar-center {
+    flex: 1;
+    justify-content: center;
+}
+
+.pdf-viewer-title {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    margin-left: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+}
+
+.pdf-viewer-button {
+    background: none;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.pdf-viewer-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.pdf-viewer-button .material-icons {
+    font-size: 20px;
+}
+
+.pdf-viewer-zoom-level {
+    color: #ffffff;
+    font-size: 13px;
+    min-width: 50px;
+    text-align: center;
+    padding: 0 8px;
+}
+
+.pdf-viewer-pages-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    background-color: #525252;
+    display: flex;
+    justify-content: center;
+}
+
+.pdf-viewer-pages {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    padding: 20px 0;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pdf-viewer-page {
+    position: relative;
+    margin-bottom: 20px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.pdf-viewer-page img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-width: 100%;
+}
+
+/* Scrollbar styling for viewer */
+.pdf-viewer-pages-container::-webkit-scrollbar {
+    width: 12px;
+}
+
+.pdf-viewer-pages-container::-webkit-scrollbar-track {
+    background: #2e2e2e;
+}
+
+.pdf-viewer-pages-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 6px;
+}
+
+.pdf-viewer-pages-container::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* AI Input Overlay Styles */
+.ai-input-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0);
+    z-index: 10000001;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, background-color 0.3s ease;
+    overflow-y: auto;
+}
+
+.ai-input-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.ai-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Document Chips */
+.ai-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 30px;
+    padding: 0 10px;
+}
+
+.ai-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(55, 53, 47, 0.08);
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: #37352f;
+    transition: all 0.2s ease;
+    animation: chipFadeIn 0.3s ease;
+}
+
+@keyframes chipFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.ai-chip:hover {
+    background-color: rgba(55, 53, 47, 0.12);
+}
+
+.ai-chip-label {
+    font-weight: 500;
+}
+
+.ai-chip-close {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(55, 53, 47, 0.5);
+    transition: color 0.2s ease;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+}
+
+.ai-chip-close:hover {
+    background-color: rgba(55, 53, 47, 0.1);
+    color: #37352f;
+}
+
+.ai-chip-close .material-icons {
+    font-size: 16px;
+}
+
+/* Chat Container */
+.ai-chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 10px;
+    margin-bottom: 20px;
+    max-height: calc(100vh - 250px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ai-chat-message {
+    display: flex;
+    width: 100%;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.ai-chat-message.ai-message-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.ai-message-user {
+    justify-content: flex-end;
+}
+
+.ai-message-assistant {
+    justify-content: flex-start;
+}
+
+.ai-chat-bubble {
+    max-width: 70%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    animation: bubbleAppear 0.3s ease;
+}
+
+@keyframes bubbleAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.ai-message-user .ai-chat-bubble {
+    background-color: #37352f;
+    color: #ffffff;
+    border-bottom-right-radius: 4px;
+}
+
+.ai-message-assistant .ai-chat-bubble {
+    background-color: rgba(55, 53, 47, 0.08);
+    color: #37352f;
+    border-bottom-left-radius: 4px;
+}
+
+/* Thinking Animation */
+.ai-thinking-bubble {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 20px;
+    background-color: rgba(55, 53, 47, 0.08);
+    border-radius: 18px;
+    border-bottom-left-radius: 4px;
+}
+
+.ai-thinking-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #667eea;
+    animation: thinkingPulse 1.4s ease-in-out infinite;
+}
+
+.ai-thinking-dot:nth-child(1) {
+    background: #667eea;
+    animation-delay: 0s;
+}
+
+.ai-thinking-dot:nth-child(2) {
+    background: #764ba2;
+    animation-delay: 0.2s;
+}
+
+.ai-thinking-dot:nth-child(3) {
+    background: #f093fb;
+    animation-delay: 0.4s;
+}
+
+@keyframes thinkingPulse {
+    0%, 100% {
+        opacity: 0.4;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.3);
+    }
+}
+
+/* Input Container */
+.ai-input-container {
+    padding: 0 10px;
+    margin-top: auto;
+}
+
+.ai-input {
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 18px;
+    color: #37352f;
+    width: 100%;
+    padding: 12px 0;
+    margin: 0;
+    text-align: left;
+    border-bottom: 2px solid transparent;
+    transition: border-color 0.2s ease;
+}
+
+.ai-input:focus {
+    border-bottom-color: rgba(55, 53, 47, 0.2);
+}
+
+.ai-input::placeholder {
+    color: rgba(55, 53, 47, 0.4);
+    opacity: 1;
+}
+
+/* Scrollbar styling for chat */
+.ai-chat-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ai-chat-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-chat-container::-webkit-scrollbar-thumb {
+    background: rgba(55, 53, 47, 0.2);
+    border-radius: 4px;
+}
+
+.ai-chat-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(55, 53, 47, 0.3);
 }
