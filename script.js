@@ -1,6 +1,8 @@
 import $ from 'jquery';
 import './settings.js';
 import './ai.js';
+import { saveDocuments, loadDocuments, addDocument } from './storage.js';
+import { processPdfFile as processPdf } from './pdf-processor.js';
 
 $(document).ready(function() {
     const ICON_WIDTH = 80; // Fixed icon width
@@ -806,11 +808,12 @@ $(document).ready(function() {
         const $pile = $('<div>').addClass('image-pile');
         
         // Create image pages with slight tilts
+        // Handle both file paths (from JSON) and data URLs (from PDF processing)
         if (rectData.pages && Array.isArray(rectData.pages)) {
-            rectData.pages.forEach(function(pagePath, index) {
+            rectData.pages.forEach(function(pagePathOrDataUrl, index) {
                 const $page = $('<img>')
                     .addClass('image-page')
-                    .attr('src', pagePath)
+                    .attr('src', pagePathOrDataUrl)
                     .attr('alt', `Page ${index + 1}`)
                     .css({
                         zIndex: rectData.pages.length - index, // First page on top
@@ -1362,18 +1365,18 @@ $(document).ready(function() {
         }
     }
     
-    // Load rectangles from JSON
-    $.getJSON('data.json', function(data) {
-        if (data.rectangles && Array.isArray(data.rectangles)) {
-            // Store all documents data
-            allDocumentsData = data.rectangles;
+    // Load rectangles from localStorage first, then fallback to JSON
+    function loadDocumentsData() {
+        // Try localStorage first
+        const storedDocuments = loadDocuments();
+        if (storedDocuments && storedDocuments.length > 0) {
+            console.log(`Loaded ${storedDocuments.length} document(s) from localStorage`);
+            allDocumentsData = storedDocuments;
+            rectangleCount = Math.max(...storedDocuments.map(r => r.id || 0), 0);
             
-            // Set rectangle count to max ID from JSON
-            rectangleCount = Math.max(...data.rectangles.map(r => r.id || 0), 0);
-            
-            // Populate sidebar with all documents (but don't create on canvas)
+            // Populate sidebar
             const $documentList = $('#document-list');
-            data.rectangles.forEach(function(rect) {
+            storedDocuments.forEach(function(rect) {
                 const $listItem = createDocumentListItem(rect);
                 $documentList.append($listItem);
                 makeSidebarItemDraggable($listItem[0], rect);
@@ -1381,10 +1384,38 @@ $(document).ready(function() {
             
             // Initialize panel dropzone after documents are loaded
             initializePanelDropzone();
+        } else {
+            // Fallback to JSON file
+            $.getJSON('data.json', function(data) {
+                if (data.rectangles && Array.isArray(data.rectangles)) {
+                    // Store all documents data
+                    allDocumentsData = data.rectangles;
+                    
+                    // Save to localStorage for future use
+                    saveDocuments(data.rectangles);
+                    
+                    // Set rectangle count to max ID from JSON
+                    rectangleCount = Math.max(...data.rectangles.map(r => r.id || 0), 0);
+                    
+                    // Populate sidebar with all documents (but don't create on canvas)
+                    const $documentList = $('#document-list');
+                    data.rectangles.forEach(function(rect) {
+                        const $listItem = createDocumentListItem(rect);
+                        $documentList.append($listItem);
+                        makeSidebarItemDraggable($listItem[0], rect);
+                    });
+                    
+                    // Initialize panel dropzone after documents are loaded
+                    initializePanelDropzone();
+                }
+            }).fail(function() {
+                console.error('Failed to load data.json');
+            });
         }
-    }).fail(function() {
-        console.error('Failed to load data.json');
-    });
+    }
+    
+    // Load documents
+    loadDocumentsData();
 
     // Function to add a new rectangle (for double-click feature)
     function addRectangle(x, y) {
@@ -1403,4 +1434,115 @@ $(document).ready(function() {
 
     // Double-click on canvas disabled - documents should not be created via double-click
     // Removed to prevent accidental document creation
+    
+    // PDF Drag-and-Drop Handlers
+    const $canvas = $('#canvas');
+    const $dropZone = $('#pdf-drop-zone');
+    const $processingIndicator = $('#pdf-processing-indicator');
+    const $processingMessage = $('#pdf-processing-message');
+    
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        $canvas.on(eventName, function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+    
+    // Show drop zone on drag enter
+    $canvas.on('dragenter', function(e) {
+        const files = e.originalEvent.dataTransfer?.files;
+        if (files && Array.from(files).some(f => f.type === 'application/pdf')) {
+            $dropZone.addClass('active');
+        }
+    });
+    
+    // Hide drop zone on drag leave
+    $canvas.on('dragleave', function(e) {
+        // Only hide if we're leaving the canvas entirely
+        if (!$(e.relatedTarget).closest('#canvas, #pdf-drop-zone').length) {
+            $dropZone.removeClass('active');
+        }
+    });
+    
+    // Handle file drop
+    $canvas.on('drop', async function(e) {
+        $dropZone.removeClass('active');
+        
+        const files = Array.from(e.originalEvent.dataTransfer?.files || []);
+        const pdfFiles = files.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+        
+        if (pdfFiles.length === 0) {
+            alert('Please drop PDF files only.');
+            return;
+        }
+        
+        // Process each PDF file
+        for (const pdfFile of pdfFiles) {
+            await processPdfFile(pdfFile);
+        }
+    });
+    
+    // Also handle click to select files
+    $dropZone.on('click', function() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/pdf';
+        input.multiple = true;
+        input.onchange = async function(e) {
+            const files = Array.from(e.target.files || []);
+            for (const file of files) {
+                await processPdfFile(file);
+            }
+        };
+        input.click();
+    });
+    
+    // Process a PDF file
+    async function processPdfFile(pdfFile) {
+        try {
+            // Show processing indicator
+            $processingIndicator.addClass('active');
+            $processingMessage.text(`Processing ${pdfFile.name}...`);
+            
+            // Get existing IDs and names
+            const existingIds = allDocumentsData.map(doc => doc.id);
+            const existingNames = new Set(allDocumentsData.map(doc => doc.name));
+            
+            // Process PDF
+            const documentData = await processPdf(pdfFile, existingIds, existingNames);
+            
+            // Add to documents
+            allDocumentsData = addDocument(documentData, allDocumentsData);
+            rectangleCount = Math.max(...allDocumentsData.map(r => r.id || 0), 0);
+            
+            // Create rectangle on canvas
+            createRectangle(documentData);
+            
+            // Add to sidebar
+            const $documentList = $('#document-list');
+            const $listItem = createDocumentListItem(documentData);
+            $documentList.append($listItem);
+            makeSidebarItemDraggable($listItem[0], documentData);
+            
+            // Update processing message
+            $processingMessage.text(`✓ ${pdfFile.name} processed successfully`);
+            
+            // Hide indicator after a short delay
+            setTimeout(() => {
+                $processingIndicator.removeClass('active');
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error processing PDF:', error);
+            $processingMessage.text(`✗ Error processing ${pdfFile.name}: ${error.message}`);
+            
+            // Show error for longer
+            setTimeout(() => {
+                $processingIndicator.removeClass('active');
+            }, 3000);
+            
+            alert(`Error processing ${pdfFile.name}: ${error.message}`);
+        }
+    }
 });
