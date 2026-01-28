@@ -1362,3 +1362,17 @@ body.dragging-active {
     color: #37352f;
     font-weight: 500;
 }
+
+/* Text Document Styles */
+.text-document-short {
+    box-sizing: border-box;
+}
+
+.text-page {
+    box-sizing: border-box;
+}
+
+/* Ensure canvas can receive focus for paste */
+.canvas:focus {
+    outline: none;
+}

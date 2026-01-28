@@ -11,6 +11,7 @@ let settingsState = {
 export function initSettings() {
     const $overlay = $('#settings-overlay');
     const $input = $('#gemini-api-key');
+    const $modelSelect = $('#gemini-model');
     const $saveBtn = $('#settings-save');
     const $cancelBtn = $('#settings-cancel');
     const $closeBtn = $('#settings-close');
@@ -21,6 +22,10 @@ export function initSettings() {
     if (existingKey) {
         $input.val(existingKey);
     }
+    
+    // Load existing model from localStorage
+    const existingModel = localStorage.getItem('gemini_model') || 'gemini-3-flash-preview';
+    $modelSelect.val(existingModel);
 
     // Open settings panel
     function openSettings() {
@@ -45,9 +50,10 @@ export function initSettings() {
         $savedMessage.removeClass('show');
     }
 
-    // Save API key
+    // Save API key and model
     function saveSettings() {
         const apiKey = $input.val().trim();
+        const model = $modelSelect.val();
         
         if (!apiKey) {
             // Clear API key if empty
@@ -59,6 +65,7 @@ export function initSettings() {
         
         // Save to localStorage
         localStorage.setItem('gemini_api_key', apiKey);
+        localStorage.setItem('gemini_model', model);
         
         // Show success message
         showSavedMessage();
@@ -89,8 +96,15 @@ export function initSettings() {
         }
     });
 
-    // Handle Enter key in input
+    // Handle Enter key in input or select
     $input.on('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            saveSettings();
+        }
+    });
+    
+    $modelSelect.on('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             saveSettings();
@@ -136,6 +150,10 @@ export function initSettings() {
     window.closeSettings = closeSettings;
     window.getGeminiApiKey = function() {
         return localStorage.getItem('gemini_api_key');
+    };
+    
+    window.getGeminiModel = function() {
+        return localStorage.getItem('gemini_model') || 'gemini-3-flash-preview';
     };
 }
 

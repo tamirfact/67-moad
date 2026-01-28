@@ -135,6 +135,20 @@
                         <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.
                     </p>
                 </div>
+                <div class="settings-section">
+                    <label for="gemini-model" class="settings-label">Model</label>
+                    <select 
+                        id="gemini-model" 
+                        class="settings-input"
+                    >
+                        <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+                        <option value="gemini-flash-latest">gemini-flash-latest</option>
+                        <option value="gemini-flash-lite-latest">gemini-flash-lite-latest</option>
+                    </select>
+                    <p class="settings-hint">
+                        Select which Gemini model to use for AI responses.
+                    </p>
+                </div>
             </div>
             <div class="settings-footer">
                 <button class="settings-button settings-button-secondary" id="settings-cancel">Cancel</button>
@@ -150,6 +164,7 @@
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script type="module" src="/script.js"></script>
 </body>
 </html>

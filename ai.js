@@ -250,10 +250,13 @@ $(document).ready(function() {
                 contextMessage = `The user has these documents open:\n\n${docContexts}\n\nUser question: ${message}`;
             }
             
+            // Get selected model from settings (default to gemini-3-flash-preview)
+            const selectedModel = window.getGeminiModel ? window.getGeminiModel() : 'gemini-3-flash-preview';
+            
             // Use streaming for better UX
             let fullText = '';
             const stream = await ai.models.generateContentStream({
-                model: 'gemini-2.0-flash-exp',
+                model: selectedModel,
                 contents: contextMessage
             });
             

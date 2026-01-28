@@ -3,6 +3,7 @@ import './settings.js';
 import './ai.js';
 import { saveDocuments, loadDocuments, addDocument } from './storage.js';
 import { processPdfFile as processPdf } from './pdf-processor.js';
+import { handlePaste } from './paste-handler.js';
 
 $(document).ready(function() {
     const ICON_WIDTH = 80; // Fixed icon width
@@ -805,27 +806,90 @@ $(document).ready(function() {
             });
         
         const $content = $('<div>').addClass('rectangle-content');
-        const $pile = $('<div>').addClass('image-pile');
         
-        // Create image pages with slight tilts
-        // Handle both file paths (from JSON) and data URLs (from PDF processing)
-        if (rectData.pages && Array.isArray(rectData.pages)) {
-            rectData.pages.forEach(function(pagePathOrDataUrl, index) {
-                const $page = $('<img>')
-                    .addClass('image-page')
-                    .attr('src', pagePathOrDataUrl)
-                    .attr('alt', `Page ${index + 1}`)
+        // Handle pasted text documents differently
+        if (rectData.isPasted && rectData.type === 'pasted-text') {
+            if (rectData.isShortText) {
+                // Short text: display directly with white background
+                const $textContainer = $('<div>')
+                    .addClass('text-document-short')
                     .css({
-                        zIndex: rectData.pages.length - index, // First page on top
-                        transform: `rotate(${getRandomTilt()}deg)`,
-                        top: (index * 2) + 'px', // Slight vertical offset for pile effect
-                        left: (index * 2) + 'px' // Slight horizontal offset for pile effect
+                        width: '100%',
+                        height: '100%',
+                        padding: '12px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '2px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                        overflow: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        wordWrap: 'break-word',
+                        fontFamily: "'DM Sans', 'Assistant', sans-serif",
+                        fontSize: '12px',
+                        lineHeight: '1.5',
+                        color: '#37352f',
+                        boxSizing: 'border-box'
+                    })
+                    .text(rectData.text);
+                $content.append($textContainer);
+            } else {
+                // Long text: show paginated pages
+                const $pile = $('<div>').addClass('image-pile');
+                if (rectData.pages && Array.isArray(rectData.pages)) {
+                    rectData.pages.forEach(function(pageText, index) {
+                        const $page = $('<div>')
+                            .addClass('text-page')
+                            .css({
+                                position: 'absolute',
+                                width: '100%',
+                                height: '800px',
+                                backgroundColor: '#ffffff',
+                                borderRadius: '2px',
+                                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                                padding: '24px',
+                                overflow: 'hidden',
+                                whiteSpace: 'pre-wrap',
+                                wordWrap: 'break-word',
+                                fontFamily: "'DM Sans', 'Assistant', sans-serif",
+                                fontSize: '12px',
+                                lineHeight: '1.5',
+                                color: '#37352f',
+                                zIndex: rectData.pages.length - index,
+                                transform: `rotate(${getRandomTilt()}deg)`,
+                                top: (index * 820) + 'px', // Stack pages vertically with spacing
+                                left: (index * 2) + 'px',
+                                boxSizing: 'border-box'
+                            })
+                            .text(pageText);
+                        $pile.append($page);
                     });
-                $pile.append($page);
-            });
+                }
+                $content.append($pile);
+            }
+        } else {
+            // Regular documents: image pages
+            const $pile = $('<div>').addClass('image-pile');
+            
+            // Create image pages with slight tilts
+            // Handle both file paths (from JSON) and data URLs (from PDF processing)
+            if (rectData.pages && Array.isArray(rectData.pages)) {
+                rectData.pages.forEach(function(pagePathOrDataUrl, index) {
+                    const $page = $('<img>')
+                        .addClass('image-page')
+                        .attr('src', pagePathOrDataUrl)
+                        .attr('alt', `Page ${index + 1}`)
+                        .css({
+                            zIndex: rectData.pages.length - index, // First page on top
+                            transform: `rotate(${getRandomTilt()}deg)`,
+                            top: (index * 2) + 'px', // Slight vertical offset for pile effect
+                            left: (index * 2) + 'px' // Slight horizontal offset for pile effect
+                        });
+                    $pile.append($page);
+                });
+            }
+            
+            $content.append($pile);
         }
         
-        $content.append($pile);
         $rect.append($content);
         
         $rect.css({
@@ -1018,18 +1082,38 @@ $(document).ready(function() {
             .attr('data-doc-name', docData.name)
             .attr('data-doc-id', docData.id);
         
+        // Use different icon for pasted documents
         const $icon = $('<div>')
-            .addClass('document-list-item-icon')
-            .text('📄');
+            .addClass('document-list-item-icon');
+        
+        if (docData.isPasted) {
+            // Use Material Icons description icon for pasted documents
+            $icon.html('<span class="material-icons" style="font-size: 20px; color: #787774;">description</span>');
+        } else {
+            // Use emoji for regular documents
+            $icon.text('📄');
+        }
         
         const $content = $('<div>').addClass('document-list-item-content');
         const $title = $('<div>')
             .addClass('document-list-item-title')
             .text(docData.label || docData.name);
         
+        // Calculate page count differently for pasted text
+        let pageCount = 0;
+        if (docData.isPasted && docData.type === 'pasted-text') {
+            if (docData.isShortText) {
+                pageCount = 0; // No pages for short text
+            } else {
+                pageCount = docData.pages ? docData.pages.length : 0;
+            }
+        } else {
+            pageCount = docData.pages ? docData.pages.length : 0;
+        }
+        
         const $subtitle = $('<div>')
             .addClass('document-list-item-subtitle')
-            .text(`${docData.pages ? docData.pages.length : 0} page${docData.pages && docData.pages.length !== 1 ? 's' : ''}`);
+            .text(pageCount > 0 ? `${pageCount} page${pageCount !== 1 ? 's' : ''}` : 'Text document');
         
         $content.append($title).append($subtitle);
         $item.append($icon).append($content);
@@ -1545,4 +1629,75 @@ $(document).ready(function() {
             alert(`Error processing ${pdfFile.name}: ${error.message}`);
         }
     }
+    
+    // Paste Handler Setup
+    // Make canvas focusable for paste events
+    $canvas.attr('tabindex', '0');
+    
+    // Handle paste event
+    $canvas.on('paste', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        try {
+            // Show processing indicator
+            $processingIndicator.addClass('active');
+            $processingMessage.text('Processing pasted content...');
+            
+            // Get existing IDs and names
+            const existingIds = allDocumentsData.map(doc => doc.id);
+            const existingNames = new Set(allDocumentsData.map(doc => doc.name));
+            
+            // Process paste with progress callback
+            const documentData = await handlePaste(
+                e.originalEvent,
+                existingIds,
+                existingNames,
+                (message) => {
+                    $processingMessage.text(message);
+                }
+            );
+            
+            if (documentData) {
+                // Add to documents
+                allDocumentsData = addDocument(documentData, allDocumentsData);
+                rectangleCount = Math.max(...allDocumentsData.map(r => r.id || 0), 0);
+                
+                // Create rectangle on canvas
+                createRectangle(documentData);
+                
+                // Add to sidebar
+                const $documentList = $('#document-list');
+                const $listItem = createDocumentListItem(documentData);
+                $documentList.append($listItem);
+                makeSidebarItemDraggable($listItem[0], documentData);
+                
+                // Update processing message
+                $processingMessage.text('✓ Content pasted successfully');
+                
+                // Hide indicator after a short delay
+                setTimeout(() => {
+                    $processingIndicator.removeClass('active');
+                }, 1000);
+            } else {
+                $processingIndicator.removeClass('active');
+            }
+            
+        } catch (error) {
+            console.error('Error processing paste:', error);
+            $processingMessage.text(`✗ Error: ${error.message}`);
+            
+            // Show error for longer
+            setTimeout(() => {
+                $processingIndicator.removeClass('active');
+            }, 3000);
+            
+            alert(`Error pasting content: ${error.message}`);
+        }
+    });
+    
+    // Focus canvas when clicking on it (for paste to work)
+    $canvas.on('click', function() {
+        $(this).focus();
+    });
 });
